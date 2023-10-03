@@ -2,31 +2,36 @@ import { useState } from 'react';
 import Head from 'next/head';
 import iro from '@jaames/iro'
 import React, { useEffect, useRef } from 'react'
-import { Color, Section, Pattern, ColorwavePattern, RunningPattern, PhasedPattern, RailwayPattern, SawPattern,
-    SinePattern, LedString } from '../components/app'
+import { Color, Section, LedString, EffectList } from '../components/app'
 
 export default function NewHotness() {
-    const [sections, setSections] = useState([new Section("Main", 124), new Section("Other", 22)]);
+    const [sections, setSections] = useState([new Section("Main", 124, false, false), new Section("Other", 22, true, true)]);
     const [chosenSection, setChosenSection] = useState(sections[0])
     
     function chooseSection(section) {
         setChosenSection(section)
     }
 
-    function test() {
-        let foo = new LedString()
-
-        console.log('sections to render', sections)
-
+    function createWledObject() {
+        let string = new LedString()
         for (let i in sections) {
-            foo = foo.addSection(sections[i])
+            string.addSection(sections[i])
         }
-
-        let rendered = foo.render()
-
-        console.log('rendered', rendered);
+        return string.render()
     }
 
+    function sendToWled() {
+        let payload = createWledObject()
+        console.log('sending payload', payload)
+        fetch('api/wled', {
+            method: "POST",
+            body: JSON.stringify(payload)
+        })
+        .then((res) => res.json())
+        .then((data) => {
+            console.log('response', data)
+        })
+    }
 
     return (
         <>
@@ -37,7 +42,7 @@ export default function NewHotness() {
 
             <SectionChooser sections={sections} setSection={chooseSection}/>
             <SectionComponent section={chosenSection} />
-            <button onClick={test}>Test</button>
+            <button onClick={sendToWled}>Test</button>
         </>
     )
 }
@@ -50,220 +55,127 @@ function SectionChooser({ sections, setSection }) {
     }
     
     return (
-        <select onChange={handleChange}>
-        {sections.map((section, index) =>
-            <option key={index} value={index}>{section.name}</option>
-        )}
-        </select>
+        <label>
+            Section:
+            <select onChange={handleChange}>
+            {sections.map((section, index) =>
+                <option key={index} value={index}>{section.name}</option>
+            )}
+            </select>
+        </label>
     )
 }
     
 function SectionComponent({ section }) {
     const [pattern, setPattern] = useState();
+    const [patternName, setPatternName] = useState();
+
+    const [reversed, setReversed] = useState(section.reversed);
+    const [mirrored, setMirrored] = useState(section.mirrored);
+
+    useEffect(() => {
+        if (!patternName) {
+            setPattern2(undefined)
+        }
+        else if (!section.pattern || patternName !== section.pattern.constructor.name) {
+            for (let i in EffectList) {
+                if (EffectList[i].name === patternName) {
+                    setPattern2(new EffectList[i]())
+                    break
+                }
+            }
+        }
+    }, [patternName]);
 
     useEffect(() => {
         setPattern(section.pattern)
+        setPatternName(section.pattern?.constructor?.name ?? '')
+        setReversed(section.reversed)
+        setMirrored(section.mirrored)
     }, [section]);
+
+    useEffect(() => {
+        section.reversed = reversed
+    }, [reversed])
+
+    useEffect(() => {
+        section.mirrored = mirrored
+    }, [mirrored])
 
     function setPattern2(pattern) {
         section.setPattern(pattern)
         setPattern(pattern)
     }
 
-    let patternComponent = ''
-    if (pattern && pattern.constructor.name === Pattern.name) {
-        patternComponent = <StaticPatternComponent pattern={pattern} setPattern={setPattern2} />
-    }
-
     return (
         <>
             <h2>{section.name} ({section.length})</h2>
-            <PatternChooser setPattern={setPattern2} /><br />
-            {patternComponent}
+            <Checkbox labelText={"Reversed:"} isChecked={reversed} setIsChecked={setReversed} /><br />
+            <Checkbox labelText={"Mirrored:"} isChecked={mirrored} setIsChecked={setMirrored} /><br/>
+            <EffectChooser patternName={patternName} setPatternName={setPatternName} /><br />
+            {pattern && <EffectComponent pattern={pattern} setPattern={setPattern2} />}
         </>
     )
 }
 
-function PatternChooser({ setPattern }) {
-    const patterns = [new Pattern(), new ColorwavePattern()]//, RunningPattern, PhasedPattern, RailwayPattern, SawPattern, SinePattern]
-
-    function handleChange(e) {
-        console.log(e.target)
-        console.log(patterns[e.target.value])
-        setPattern(patterns[e.target.value])
-    }
-    
+function Checkbox({labelText, isChecked, setIsChecked}) {
     return (
-        <select onChange={handleChange}>
-            <option />
-        {patterns.map((pattern, index) =>
-            <option key={index} value={index}>{pattern.displayName}</option>
-        )}
-        </select>
+        <>
+            <label>
+                {labelText}
+                <input type="checkbox" checked={isChecked} onChange={() => setIsChecked(!isChecked)} />
+            </label>
+        </>
     )
 }
 
-function StaticPatternComponent({ pattern, setPattern }) {
+function EffectChooser({ patternName, setPatternName }) {
+    const patternNames = EffectList.reduce((map, pattern) => (map[pattern.name] = pattern.displayName, map), {});
+    
+    return (
+        <label>
+            Effect:
+            <select onChange={e => setPatternName(e.target.value)} value={patternName}>
+                <option value="" />
+                {Object.entries(patternNames).map(([name, displayName], index) => <option key={index} value={name}>{displayName}</option>)}
+            </select>
+        </label>
+    )
+}
+
+function EffectComponent({ pattern, setPattern }) {
     const [colors, setColors] = useState([]);
 
     useEffect(() => {
         setColors(pattern.colors)
     }, [pattern]);
 
-    function addColor(toAdd) {
-        setColors(oldColors => {
-            let newColors = [...oldColors, new Color(toAdd[0], toAdd[1], toAdd[2])]
-            pattern.setColors(newColors)
-            return pattern.colors
-        });
-    };
+    function setColors2(newColors) {
+        pattern.setColors(newColors)
+        setColors(pattern.colors)
+    }
 
     return (
         <>
             <b>{pattern.displayName}</b><br />
-            {colors.map((color) => (
-                <div key={crypto.randomUUID()} style={{width: 10, height: 10, backgroundColor: color.hexString()}}></div>
-            ))}
-            <ColorPicker setColor={addColor} />
+            <ColorPicker setColors={setColors2} colors={colors} maxToPick={pattern.maxColors} />
         </>
     )
 }
 
-function HomePage() {
+function ColorPicker({ colors, setColors, maxToPick }) {
+    const ref = useRef();
+    const colorPicker = useRef();
 
-    const staticSection = new Section("Main", 123);
-    const staticPattern = new Pattern()
-    staticPattern.setColors([Color.Yellow, Color.Green, Color.Blue])
-    //staticSection.setPattern(staticPattern)
-
-    const [colors, setColors] = useState([]);
-    const [numLeds, setNumLeds] = useState(0);
-    const [sections, setSections] = useState([]);
-    const [selectedSection, setSelectedSection] = useState()
-    const [selectedPattern, setSelectedPattern] = useState()
-
-    const patterns = [new Pattern(), new ColorwavePattern()]//, RunningPattern, PhasedPattern, RailwayPattern, SawPattern, SinePattern]
-
-    function wrapSetSelectedPattern(pattern) {
-        console.log('selecting pattern', pattern)
-        setSelectedPattern(pattern)
-    }
-
-    function wrapSetSelectedSection(section) {
-        console.log('selecting section', section)
-        setSelectedSection(section)
-    }
+    const [lastHue, setLastHue] = useState(0);
 
     useEffect(() => {
-        fetch("api/wled")
-            .then(res => res.json())
-            .then(numLeds => {
-                setNumLeds(numLeds)
-                setSections([new Section(numLeds), new Section(0)])
-                //setSection(new Section(numLeds))
-            })
-        }, 
-    []);
-
-    function addColor(toAdd) {
-        setColors(oldColors => [...oldColors, new Color(toAdd[0], toAdd[1], toAdd[2])])
-    }
-
-    function resetColors() {
-        setColors([])
-    }
-
-    function createWledObject() {
-        let pattern = new Pattern()
-        for (let i in colors) {
-            pattern.addColor(colors[i])
-        }
-        let string = new LedString()
-        for (let i in sections) {
-            sections[i].setPattern(pattern)
-            string.addSection(sections[i])
-        }
-        return string.render()
-    }
-
-    function sendToWled() {
-        let payload = createWledObject()
-        fetch('api/wled', {
-            method: "POST",
-            body: JSON.stringify(payload)
-        })
-        .then((res) => res.json())
-        .then((data) => {
-            console.log('response', data)
-        })
-
-    }
-
-    return (
-        <>
-            <Head>
-                <title>WLED 2D</title>
-                <link rel="icon" href="/favicon.ico" />
-            </Head>
-
-            <SectionComponent section={staticSection} />
-
-            {/* <select>
-            {sections.map((x) => (
-                <option key={crypto.randomUUID()}>{x.length}</option>
-            ))}
-            </select>
-            <Selector selectOptions={sections.map((x) => ({ name: x.length, value: x }))} selectOption={wrapSetSelectedSection} />
-            <Selector selectOptions={patterns.map((x) => ({ name: x.displayName, value: x }))} selectOption={wrapSetSelectedPattern} />
-            {colors.map((color) => (
-                <div key={crypto.randomUUID()} style={{width: 10, height: 10, backgroundColor: color.hexString()}}></div>
-            ))}
-
-            <ColorPicker setColor={addColor} />
-            <button onClick={resetColors}>Reset Pattern</button>
-            <button onClick={sendToWled} disabled={colors.length === 0}>Send to WLED</button> */}
-        </>
-    );
-}
-
-function Selector({ selectOptions, selectOption }) {
-    useEffect(() => {
-        console.log("checking list", selectOptions)
-        // if (selectOptions.length > 0) {
-        //     selectOption(selectOptions[0])
-        // }
-    }, [selectOptions])
-
-    function handleChange(e) {
-        console.log(selectOptions)
-        console.log(e.target)
-        console.log(selectOptions[e.target.value].value)
-        selectOption(selectOptions[e.target.value].value)
-    }
-    
-    return (
-        <select onChange={handleChange}>
-        {selectOptions.map((option, index) =>
-            <option key={index} value={index}>{option.name}</option>
-        )}
-        </select>
-    )
-}
-
-
-function ColorPicker({ setColor, color }) {
-    const ref = useRef()
-    const colorPicker = useRef()
-
-    const [lastHue, setLastHue] = useState(0)
-
-    useEffect(() => {
-      const cp = (colorPicker.current = new iro.ColorPicker(ref.current, { color }))
-    }, [])
+      const cp = (colorPicker.current = new iro.ColorPicker(ref.current))
+    }, []);
 
     function handleClick() {
         let rgb = colorPicker.current.color.rgb
-        setColor([rgb.r, rgb.g, rgb.b])
+        setColors([...colors, new Color(rgb.r, rgb.g, rgb.b)])
     }
 
     function pickColor(color) {
@@ -301,6 +213,9 @@ function ColorPicker({ setColor, color }) {
 
     return (
         <>
+            {colors.map((color) => (
+                <div key={crypto.randomUUID()} style={{width: 30, height: 30, backgroundColor: color.hexString()}}></div>
+            ))}
             <div ref={ref} />
             <div id="qcs-w">
                 {defaultColors.map(([name,hexString]) => (
@@ -308,7 +223,9 @@ function ColorPicker({ setColor, color }) {
                 ))}
                 <div className="qcs" onClick={() => pickColor("rnd")} title="Random" style={{background: "linear-gradient(to right,red,orange,#ff0,green,#00f,purple)", transform:"translateY(-11px)"}}>R</div>
             </div>
-            <button onClick={handleClick}>Select Color</button>
+            <button onClick={handleClick} disabled={colors.length >= maxToPick}>Select Color</button>
+            <button onClick={() => setColors([])}>Reset colors</button>
         </>
     );
 }
+

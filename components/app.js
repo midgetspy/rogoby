@@ -22,14 +22,14 @@ export class Color {
     }
 }
 
-class Effect {
-    static Solid = (color) => new Effect(0, 128, 128, color)
-    static Running = (speed, intensity, fg, bg) => new Effect(15, speed, intensity, fg, bg)
-    static Colorwave = (speed, hue, color) => new Effect(67, speed, hue, color)
-    static Phased = (speed, intensity, fg, bg) => new Effect(105, speed, intensity, fg, bg)
-    static Railway = (speed, smoothness, fg, bg) => new Effect(78, speed, smoothness, fg, bg)
-    static Saw = (speed, width, fg, bg) => new Effect(16, speed, width, fg, bg)
-    static Sine = (speed, intensity, fg, bg) => new Effect(108, speed, intensity, fg, bg)
+class ApiEffect {
+    static Solid = (color) => new ApiEffect(0, 128, 128, color)
+    static Running = (speed, intensity, fg, bg) => new ApiEffect(15, speed, intensity, fg, bg)
+    static Colorwave = (speed, hue, color) => new ApiEffect(67, speed, hue, color)
+    static Phased = (speed, intensity, fg, bg) => new ApiEffect(105, speed, intensity, fg, bg)
+    static Railway = (speed, smoothness, fg, bg) => new ApiEffect(78, speed, smoothness, fg, bg)
+    static Saw = (speed, width, fg, bg) => new ApiEffect(16, speed, width, fg, bg)
+    static Sine = (speed, intensity, fg, bg) => new ApiEffect(108, speed, intensity, fg, bg)
 
     constructor(id, speed, intensity, color1, color2=Color.Black, color3=Color.Black) {
         this.id = id
@@ -45,8 +45,8 @@ export class Section {
     constructor(name, length, reverse=false, mirror=false) {
         this.name = name
         this.length = length
-        this.reverse = reverse
-        this.mirror = mirror
+        this.reversed = reverse
+        this.mirrored = mirror
     }
 
     setPattern(pattern) {
@@ -116,10 +116,9 @@ class ApiSegment {
     }
 }
 
-export class Pattern {
-    displayName = "Static Pattern"
+class StaticPattern {
+    static displayName = "Static Pattern"
     maxColors = 10
-    _effects = []
     colors = []
     #width = 1
 
@@ -129,90 +128,98 @@ export class Pattern {
 
     setColors(colors) {
         this.colors = colors
-        this._effects = colors.map((color) => Effect.Solid(color))
     }
 
-    addColor(color) {
-        this._effects.push(Effect.Solid(color))
-        return this
+    _createEffects() {
+        return this.colors.map((color) => ApiEffect.Solid(color))
     }
 
     renderForSegment(idStart, segmentStart, segment) {
-        return this._effects.map((effect, i) => {
+        let effects = this._createEffects()
+        return effects.map((effect, i) => {
             return new ApiSegment(
                 idStart+i,
                 segmentStart+i*this.#width,
                 segmentStart+segment.length,
                 effect,
                 this.#width,
-                this._effects.length-1,
-                segment.reverse,
-                segment.mirror,
+                effects.length-1,
+                segment.reversed,
+                segment.mirrored,
             ).render()
         })
     }
 }
 
-export class ColorwavePattern extends Pattern {
-    displayName = "Colorwave Pattern"
+class ColorwavePattern extends StaticPattern {
+    static displayName = "Colorwave Pattern"
     maxColors = 10
     #hue = 128
     #speed = 1
 
-    setColors(colors) {
-        this._effects = colors.map((color) => Effect.Colorwave(this.#speed, this.#hue, color))
-    }
-
-    addColor(color) {
-        this._effects.push(Effect.Colorwave(this.#speed, this.#hue, color))
-        return this
+    _createEffects() {
+        return this.colors.map((color) => ApiEffect.Colorwave(this.#speed, this.#hue, color))
     }
 }
 
-export class RunningPattern extends Pattern {
+class Running extends StaticPattern {
     static displayName = "Running"
     maxColors = 2
-    constructor(color1, color2, speed=20, width=255) {
-        super()
-        this._effects.push(Effect.Running(speed, width, color1, color2))
+    #speed = 20
+    #runWidth = 255
+
+    _createEffects() {
+        return [ApiEffect.Running(this.#speed, this.#runWidth, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)]
     }
+
 }
 
-export class PhasedPattern extends Pattern {
-    static displayNmae = "Phased"
+class Phased extends StaticPattern {
+    static displayName = "Phased"
     maxColors = 2
-    constructor(color1, color2, speed=40, intensity=255) {
-        super()
-        this._effects.push(Effect.Phased(speed, intensity, color1, color2))
+    #speed = 40
+    #intensity = 255
+
+    _createEffects() {
+        return [ApiEffect.Phased(this.#speed, this.#intensity, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)]
     }
 }
 
-export class RailwayPattern extends Pattern {
+class Railway extends StaticPattern {
     static displayName = "Railway"
     maxColors = 2
-    constructor(color1, color2, speed=128, smoothness=255) {
-        super()
-        this._effects.push(Effect.Railway(speed, intensity, color1, color2))
+    #speed = 128
+    #smoothness =255
+
+    _createEffects() {
+        return [ApiEffect.Railway(this.#speed, this.#smoothness, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)]
     }
+
 }
 
-export class SawPattern extends Pattern {
+class Saw extends StaticPattern {
     static displayName = "Saw"
     maxColors = 2
-    constructor(color1, color2, speed=20, width=128) {
-        super()
-        this._effects.push(Effect.Saw(speed, width, color1, color2))
+    #speed = 20
+    #sawWidth = 128
+
+    _createEffects() {
+        return [ApiEffect.Saw(this.#speed, this.#sawWidth, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)]
     }
 }
 
-export class SinePattern extends Pattern {
+class Sine extends StaticPattern {
     static displayName = "Sine"
     maxColors = 2
-    constructor(color1, color2, speed=20, intensity=128) {
-        super()
-        this._effects.push(Effect.Sine(speed, intensity, color1, color2))
+    #speed = 20
+    #intensity = 128
+
+    _createEffects() {
+        return [ApiEffect.Sine(this.#speed, this.#intensity, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)]
     }
 }
+
+export const EffectList = [StaticPattern, ColorwavePattern, Running, Phased, Railway, Saw, Sine]
 
 export class LedString {
     #apiSegments = []
