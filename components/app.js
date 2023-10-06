@@ -42,6 +42,8 @@ class ApiEffect {
 }
 
 export class Section {
+    id = -1
+    
     constructor(name, length, reverse=false, mirror=false) {
         this.name = name
         this.length = length
@@ -118,7 +120,7 @@ class ApiSegment {
 
 class StaticPattern {
     static displayName = "Static Pattern"
-    maxColors = 10
+    static maxColors = 10
     colors = []
     #width = 1
 
@@ -153,7 +155,7 @@ class StaticPattern {
 
 class ColorwavePattern extends StaticPattern {
     static displayName = "Colorwave Pattern"
-    maxColors = 10
+    static maxColors = 2
     #hue = 128
     #speed = 1
 
@@ -164,7 +166,7 @@ class ColorwavePattern extends StaticPattern {
 
 class Running extends StaticPattern {
     static displayName = "Running"
-    maxColors = 2
+    static maxColors = 2
     #speed = 20
     #runWidth = 255
 
@@ -176,7 +178,7 @@ class Running extends StaticPattern {
 
 class Phased extends StaticPattern {
     static displayName = "Phased"
-    maxColors = 2
+    static maxColors = 2
     #speed = 40
     #intensity = 255
 
@@ -187,7 +189,7 @@ class Phased extends StaticPattern {
 
 class Railway extends StaticPattern {
     static displayName = "Railway"
-    maxColors = 2
+    static maxColors = 2
     #speed = 128
     #smoothness =255
 
@@ -199,7 +201,7 @@ class Railway extends StaticPattern {
 
 class Saw extends StaticPattern {
     static displayName = "Saw"
-    maxColors = 2
+    static maxColors = 2
     #speed = 20
     #sawWidth = 128
 
@@ -210,7 +212,7 @@ class Saw extends StaticPattern {
 
 class Sine extends StaticPattern {
     static displayName = "Sine"
-    maxColors = 2
+    static maxColors = 2
     #speed = 20
     #intensity = 128
 
@@ -222,59 +224,42 @@ class Sine extends StaticPattern {
 export const EffectList = [StaticPattern, ColorwavePattern, Running, Phased, Railway, Saw, Sine]
 
 export class LedString {
-    #apiSegments = []
-    
-    addSection(section) {
-        let nextId = 0, nextLed = 0
+    id = -1
+    sections = []
 
-        if (this.#apiSegments.length > 0) {
-            nextLed = Math.max(...this.#apiSegments.map(x => x.stop))
-            nextId = this.#apiSegments[this.#apiSegments.length-1].id + 1
-        }
+    constructor(name, sections) {
+        this.name = name
+        this.sections = sections
+    }
 
-        if (section.pattern) {
-            this.#apiSegments = this.#apiSegments.concat(section.pattern.renderForSegment(nextId, nextLed, section))
-        } else {
-            console.log('no pattern defined yet for', section)
-        }
-
-        return this
+    setSections(sections) {
+        this.sections = sections
     }
 
     render() {
+        let nextId = 0, nextLed = 0, apiSegments = []
+
+        for (let i in this.sections) {
+            if (apiSegments.length > 0) {
+                nextLed = Math.max(...apiSegments.map(x => x.stop))
+                nextId = apiSegments[apiSegments.length-1].id + 1
+            }
+
+            let section = this.sections[i]
+            if (section.pattern) {
+                apiSegments = apiSegments.concat(section.pattern.renderForSegment(nextId, nextLed, section))
+            } else {
+                console.log('no pattern defined yet for', section)
+            }
+        }
+
         return {
             "on": true,
             "bri": 255,
             "transition": 0,
             "mainseg": 0,
-            "seg": this.#apiSegments.concat(Array(20).fill({"stop":0}))
+            "seg": apiSegments.concat(Array(20).fill({"stop":0}))
         }
     }
 
 }
-
-// let rgby = new Pattern()
-//     .addColor(Color.Red)
-//     .addColor(Color.Green)
-//     .addColor(Color.Blue)
-//     .addColor(Color.Yellow)
-
-// let rgbyWave = new ColorwavePattern(1, 128)
-//     .addColor(Color.Red)
-//     .addColor(Color.Green)
-//     .addColor(Color.Blue)
-//     .addColor(Color.Yellow)
-
-// let rgRunning = new RunningPattern(Color.Red, Color.Green)
-
-// let rgPhased = new PhasedPattern(Color.Red, Color.Green)
-
-// let string1 = new LedString()
-//     .addSection(rgby, new Section(100))
-//     .addSection(rgbyWave, new Section(50))
-
-// let string2 = new LedString()
-//     .addSection(rgRunning, new Section(100, false, true))
-//     .addSection(rgPhased, new Section(50))
-
-//console.log(JSON.stringify(string2.render(), null, 3))

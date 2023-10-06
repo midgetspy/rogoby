@@ -5,32 +5,39 @@ import React, { useEffect, useRef } from 'react'
 import { Color, Section, LedString, EffectList } from '../components/app'
 
 export default function NewHotness() {
-    const [sections, setSections] = useState([new Section("Main", 124, false, false), new Section("Other", 22, true, true)]);
-    const [chosenSection, setChosenSection] = useState(sections[0])
-    
-    function chooseSection(section) {
-        setChosenSection(section)
-    }
+    const [chosenLedString, setChosenLedString] = useState();
+    const [ledStrings, setLedStrings] = useState([
+        new LedString("Whole String", [new Section("Main", 150, false, false)]),
+        new LedString("Separate", [new Section("Porch", 10), new Section("Gutter", 97), new Section("Garage", 43)])
+    ]);
+    const [newLedStringText, setNewLedStringText] = useState('');
 
-    function createWledObject() {
-        let string = new LedString()
-        for (let i in sections) {
-            string.addSection(sections[i])
-        }
-        return string.render()
-    }
+    const [numLeds, setNumLeds] = useState(0);
+    useEffect(() => {
+        fetch("api/wled")
+            .then(res => res.json())
+            .then(numLeds => {
+                setNumLeds(numLeds);
+                if (ledStrings.length == 0) {
+                    let defaultLedString = new LedString("Whole String", [new Section("Main", numLeds, false, false)]);
+                    setLedStrings([defaultLedString]);
+                    setChosenLedString(defaultLedString);
+                }
+            });
+        },
+    []);
 
-    function sendToWled() {
-        let payload = createWledObject()
-        console.log('sending payload', payload)
-        fetch('api/wled', {
-            method: "POST",
-            body: JSON.stringify(payload)
-        })
-        .then((res) => res.json())
-        .then((data) => {
-            console.log('response', data)
-        })
+    function addNewLedString() {
+        let [name, sectionString] = newLedStringText.split(" ");
+        let sections = sectionString.split(",").map((x, i) => {
+            let sectionPieces = x.split(":");
+            if (sectionPieces.length == 1) {
+                return new Section(i, parseInt(x), false, false);
+            } else {
+                return new Section(sectionPieces[0], parseInt(sectionPieces[1]));
+            }
+        });
+        setLedStrings(oldLedStrings => [...oldLedStrings, new LedString(name, sections)]);
     }
 
     return (
@@ -40,17 +47,80 @@ export default function NewHotness() {
                 <link rel="icon" href="/favicon.ico" />
             </Head>
 
-            <SectionChooser sections={sections} setSection={chooseSection}/>
-            <SectionComponent section={chosenSection} />
+            <input value={newLedStringText} onChange={e => setNewLedStringText(e.target.value)}></input> <button onClick={addNewLedString}>Add LED String</button><br />
+
+            <LedStringChooser ledStrings={ledStrings} setLedString={setChosenLedString} />
+            {chosenLedString && <LedStringComponent ledString={chosenLedString} />}
+        </>
+    );
+}
+
+function LedStringChooser({ ledStrings, setLedString}) {
+    function handleChange(e) {
+        console.log('string chosen', ledStrings[e.target.value]);
+        setLedString(ledStrings[e.target.value]);
+    }
+    
+    return (
+        <label>
+            Led String:
+            <select onChange={handleChange}>
+            {ledStrings.map((ledString, index) =>
+                <option key={index} value={index}>{ledString.name}</option>
+            )}
+            </select>
+        </label>
+    );
+}
+
+function LedStringComponent({ ledString }) {
+    const [sections, setSections] = useState(ledString.sections);
+    const [name, setName] = useState('');
+    const [chosenSection, setChosenSection] = useState();
+
+    useEffect(() => {
+        setName(ledString.name);
+        setSections(ledString.sections);
+        setChosenSection(ledString.sections[0])
+    }, [ledString]);
+
+    function createWledObject() {
+        let string = new LedString();
+        string.setSections(sections);
+        return string.render();
+    }
+
+    function sendToWled() {
+        let payload = createWledObject();
+        console.log('sending payload', payload);
+        fetch('api/wled', {
+            method: "POST",
+            body: JSON.stringify(payload)
+        })
+        .then((res) => res.json())
+        .then((data) => {
+            console.log('response', data);
+        });
+    }
+
+   
+    function chooseSection(section) {
+        setChosenSection(section);
+    }
+
+    return (
+        <>
+            <h1>{name}</h1>
+            <SectionChooser sections={sections} setSection={chooseSection} />
+            {chosenSection && <SectionComponent section={chosenSection} />}
             <button onClick={sendToWled}>Test</button>
         </>
-    )
+    );
 }
 
 function SectionChooser({ sections, setSection }) {
     function handleChange(e) {
-        console.log(e.target)
-        console.log(sections[e.target.value])
+        console.log('section chosen', sections[e.target.value])
         setSection(sections[e.target.value])
     }
     
@@ -63,7 +133,7 @@ function SectionChooser({ sections, setSection }) {
             )}
             </select>
         </label>
-    )
+    );
 }
     
 function SectionComponent({ section }) {
@@ -80,31 +150,31 @@ function SectionComponent({ section }) {
         else if (!section.pattern || patternName !== section.pattern.constructor.name) {
             for (let i in EffectList) {
                 if (EffectList[i].name === patternName) {
-                    setPattern2(new EffectList[i]())
-                    break
+                    setPattern2(new EffectList[i]());
+                    break;
                 }
             }
         }
     }, [patternName]);
 
     useEffect(() => {
-        setPattern(section.pattern)
-        setPatternName(section.pattern?.constructor?.name ?? '')
-        setReversed(section.reversed)
-        setMirrored(section.mirrored)
+        setPattern(section.pattern);
+        setPatternName(section.pattern?.constructor?.name ?? '');
+        setReversed(section.reversed);
+        setMirrored(section.mirrored);
     }, [section]);
 
     useEffect(() => {
-        section.reversed = reversed
+        section.reversed = reversed;
     }, [reversed])
 
     useEffect(() => {
-        section.mirrored = mirrored
+        section.mirrored = mirrored;
     }, [mirrored])
 
     function setPattern2(pattern) {
-        section.setPattern(pattern)
-        setPattern(pattern)
+        section.setPattern(pattern);
+        setPattern(pattern);
     }
 
     return (
@@ -115,7 +185,7 @@ function SectionComponent({ section }) {
             <EffectChooser patternName={patternName} setPatternName={setPatternName} /><br />
             {pattern && <EffectComponent pattern={pattern} setPattern={setPattern2} />}
         </>
-    )
+    );
 }
 
 function Checkbox({labelText, isChecked, setIsChecked}) {
@@ -126,7 +196,7 @@ function Checkbox({labelText, isChecked, setIsChecked}) {
                 <input type="checkbox" checked={isChecked} onChange={() => setIsChecked(!isChecked)} />
             </label>
         </>
-    )
+    );
 }
 
 function EffectChooser({ patternName, setPatternName }) {
@@ -140,19 +210,19 @@ function EffectChooser({ patternName, setPatternName }) {
                 {Object.entries(patternNames).map(([name, displayName], index) => <option key={index} value={name}>{displayName}</option>)}
             </select>
         </label>
-    )
+    );
 }
 
 function EffectComponent({ pattern, setPattern }) {
     const [colors, setColors] = useState([]);
 
     useEffect(() => {
-        setColors(pattern.colors)
+        setColors(pattern.colors);
     }, [pattern]);
 
     function setColors2(newColors) {
-        pattern.setColors(newColors)
-        setColors(pattern.colors)
+        pattern.setColors(newColors);
+        setColors(pattern.colors);
     }
 
     return (
@@ -160,7 +230,7 @@ function EffectComponent({ pattern, setPattern }) {
             <b>{pattern.displayName}</b><br />
             <ColorPicker setColors={setColors2} colors={colors} maxToPick={pattern.maxColors} />
         </>
-    )
+    );
 }
 
 function ColorPicker({ colors, setColors, maxToPick }) {
@@ -170,19 +240,19 @@ function ColorPicker({ colors, setColors, maxToPick }) {
     const [lastHue, setLastHue] = useState(0);
 
     useEffect(() => {
-      const cp = (colorPicker.current = new iro.ColorPicker(ref.current))
+      const cp = (colorPicker.current = new iro.ColorPicker(ref.current));
     }, []);
 
     function handleClick() {
-        let rgb = colorPicker.current.color.rgb
-        setColors([...colors, new Color(rgb.r, rgb.g, rgb.b)])
+        let rgb = colorPicker.current.color.rgb;
+        setColors([...colors, new Color(rgb.r, rgb.g, rgb.b)]);
     }
 
     function pickColor(color) {
         if(color == "rnd"){
             color = {h: 0, s: Math.floor(50*Math.random()+50), v: 100};
             do {
-                color.h = Math.floor(360*Math.random())
+                color.h = Math.floor(360*Math.random());
             } while (Math.abs(color.h-lastHue)<50);
             setLastHue(color.h);
         }
@@ -194,7 +264,7 @@ function ColorPicker({ colors, setColors, maxToPick }) {
         if (t.value > 0) {
             colorPicker.current.color.set(t)
          } else {
-            colorPicker.current.color.setChannel("hsv","v",0)
+            colorPicker.current.color.setChannel("hsv","v",0);
          }
     }
 
@@ -209,7 +279,7 @@ function ColorPicker({ colors, setColors, maxToPick }) {
         ["Blue", "#0000ff"],
         ["Cyan", "#00ffc8"],
         ["Green", "#08ff00"]
-    ]
+    ];
 
     return (
         <>
