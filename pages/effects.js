@@ -25,6 +25,7 @@ export default function PresetEditor() {
             .then(res => res.json())
             .then(resultJson => {
                 setExistingPresets(resultJson);
+                setSelectedPresetIndex(-1);
             });
     }
     
@@ -98,7 +99,7 @@ export default function PresetEditor() {
     }
 
     function deletePreset() {
-        fetch('api/effect/' + selectedPresetIndex, { method: "DELETE" })
+        fetch('api/effect/' + selectedPreset.id, { method: "DELETE" })
         .then(loadPresetsFromDatabase);
     }
 

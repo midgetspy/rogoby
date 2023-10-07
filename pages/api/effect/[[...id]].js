@@ -1,26 +1,35 @@
-import { EffectPresetRow } from "../../../components/db";
-import { Color } from "../../../components/app";
+import { Database } from "../../../components/db";
 
-export default function handler(req, res) {
+const db = new Database()
+
+export default async function handler(req, res) {
     const { id } = req.query;
     console.log(req.method, id);
 
     if (req.method === 'GET') {
-        let storedEffects = [
-            new EffectPresetRow(0, "Off", "StaticPattern", [Color.Black]),
-            new EffectPresetRow(1, "RGBY", "StaticPattern", [Color.Red, Color.Green, Color.Blue, Color.Yellow]),
-            new EffectPresetRow(2, "WGWR", "ColorwavePattern", [Color.White, Color.Green, Color.White, Color.Red]),
-        ];
-        res.status(200).json(storedEffects);
+        if (id === undefined) {
+            let presets = await db.getEffectPresets();
+            res.status(200).json(presets);
+        } else {
+            let preset = await db.getEffectPreset(id);
+            console.log('got preset for id', id, preset)
+            if (preset) {
+                res.status(200).json(preset);
+            } else {
+                res.status(404).json("not found");
+            }
+        }
+        return;
     } else if (req.method === 'POST') {
         if (id !== undefined) {
             res.status(400).send({ message: 'id cannot be sent for POST requests'});
             return;
         }
+        console.log("body", req.body);
         let obj = JSON.parse(req.body);
-        obj.id = 123;
-        console.log("adding new row", req.body);
-        res.status(200).json(obj);
+        console.log("obj", obj);
+        let presetId = await db.createEffectPreset(obj);
+        res.status(200).json(presetId);
     } else if (req.method === 'PUT') {
         if (id === undefined) {
             res.status(400).send({ message: 'Must specify an id when using PUT'});
@@ -28,14 +37,15 @@ export default function handler(req, res) {
         }
         let obj = JSON.parse(req.body)
         console.log('updating row with id', id, req.body, obj);
-        res.status(200).json(obj);
+        let result = await db.updateEffectPreset(obj);
+        res.status(200).json(result);
     } else if (req.method === 'DELETE') {
         if (id === undefined) {
             res.status(400).send({ message: 'Must specify an id when using DELETE'});
             return;
         }
-        console.log('deleting row with id', id);
-        res.status(id == 1 ? 200 : 400).json('success');
+        let result = await db.deleteEffectPreset(id);
+        res.status(result ? 200 : 404).json('');
     } else {
         res.status(405).send({ message: 'Unsupported HTTP verb' })
         return
