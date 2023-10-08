@@ -89,7 +89,7 @@ export class Database {
 
         let db = await this.getDb();
 
-        const colors = await db.all(`SELECT red, green, blue FROM effectPresetColor WHERE effectPresetId = ?`, effectPreset.id);
+        const colors = await db.all(`SELECT id, red, green, blue FROM effectPresetColor WHERE effectPresetId = ?`, effectPreset.id);
         effectPreset.colors = colors;
 
         return effectPreset;
@@ -147,6 +147,15 @@ export class Database {
         return insertedPreset.lastID;
     }
 
+    async deletePreset(id) {
+        let db = await this.getDb();
+
+        const result = await db.run("DELETE FROM sectionPreset WHERE id = ?", id);
+        await db.run("DELETE FROM section WHERE sectionPresetId = ?", id);
+
+        return result.changes > 0;
+    }
+
     async initializeDb() {
         let db = await this.getDb();
 
@@ -195,21 +204,5 @@ export class Database {
         );
 
         console.log("Created effectPresetColor table.");
-
-        await db.run(`DELETE FROM section`);
-
-        console.log("All rows deleted from section");
-
-        await db.run(`DELETE FROM sectionPreset`);
-
-        console.log("All rows deleted from sectionPreset");
-
-        await db.run(`DELETE FROM effectPreset`);
-
-        console.log("All rows deleted from effectPreset");
-
-        await db.run(`DELETE FROM effectPresetColor`);
-
-        console.log("All rows deleted from effectPresetColor");
     }
 }

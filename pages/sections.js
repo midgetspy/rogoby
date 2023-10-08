@@ -38,33 +38,34 @@ export default function PresetEditor() {
         });
     }, [selectedString]);
 
-    function saveStrings() {
-        console.log("saving strings", existingPresets);
+    function saveString() {
+        console.log("saving string", selectedString);
 
-        let allSaves = existingPresets.map(ledString => {
-            console.log('saving', ledString);
-            let req = null
-            if (ledString.id !== -1) {
-                req = fetch("api/sections/" + ledString.id, {
-                    method: 'PUT',
-                    body: JSON.stringify(ledString)
-                });
-            } else {
-                req = fetch("api/sections", {
-                    method: 'POST',
-                    body: JSON.stringify(ledString)
-                });
-            }
-            return req.then(res => res.json())
-            .then(data => {
-                console.log('response', data);
+        let req = null
+        if (selectedString.id !== undefined) {
+            req = fetch("api/sections/" + selectedString.id, {
+                method: 'PUT',
+                body: JSON.stringify(selectedString)
             });
-        })
-
-        Promise.all(allSaves).then(() => {
+        } else {
+            console.log("posting string");
+            req = fetch("api/sections", {
+                method: 'POST',
+                body: JSON.stringify(selectedString)
+            });
+        }
+        
+        req.then(res => res.json())
+        .then(data => {
+            console.log('response', data);
             loadPresetsFromDatabase();
         });
+    }
 
+    function deleteString() {
+        console.log('deleting with id', selectedString.id)
+        fetch('api/sections/' + selectedString.id, { method: "DELETE" })
+            .then(loadPresetsFromDatabase);
     }
 
     return (
@@ -76,7 +77,8 @@ export default function PresetEditor() {
 
             <ObjectChooser selectedIndex={selectedStringIndex} setSelectedIndex={setSelectedStringIndex} choices={existingPresets.map(x => x.name)} defaultOption={"New Preset"} labelText="Preset to edit:" /><br />
             <LedStringEditor string={selectedString} setString={setSelectedString} /><br />
-            <button onClick={saveStrings}>Save</button>
+            <button onClick={saveString}>Save</button>
+            <button onClick={deleteString}>Delete</button>
         </>
     );
 }

@@ -25,8 +25,8 @@ export default async function handler(req, res) {
             return;
         }
         console.log("adding new row", req.body);
-        let id = await db.createPreset(JSON.parse(req.body));
-        res.status(200).json(id);
+        let presetId = await db.createPreset(JSON.parse(req.body));
+        res.status(200).json(presetId);
     } else if (req.method === 'PUT') {
         if (id === undefined) {
             res.status(400).send({ message: 'Must specify an id when using PUT'});
@@ -40,7 +40,9 @@ export default async function handler(req, res) {
             return;
         }
         console.log('deleting row with id', id);
-        res.status(id == 1 ? 200 : 400).json('success');
+
+        let result = await db.deletePreset(id);
+        res.status(result ? 200 : 404).json('');
     } else {
         res.status(405).send({ message: 'Unsupported HTTP verb' })
         return
