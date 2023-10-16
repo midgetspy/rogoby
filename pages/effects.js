@@ -2,21 +2,19 @@ import Head from 'next/head';
 import { useState, useEffect, useRef } from 'react';
 import { useImmer } from 'use-immer';
 import iro from '@jaames/iro'
-import { EffectList } from '../components/app'
+import { VirtualEffectList, WledEffectPreset, Color } from '../components/app'
 import ObjectChooser from '../components/chooser'
 
 
-const defaultPreset = {id: -1, name: '', effectName: 'StaticPattern', colors: []};
+const defaultPreset = {id: -1, name: 'New Preset', effectId: 1000, colors: [], width: 1};
 
 export default function PresetEditor() {
     const [existingPresets, setExistingPresets] = useImmer([]);
-    const [selectedPresetIndex, setSelectedPresetIndex] = useState(-1);
-    const [selectedPreset, setSelectedPreset] = useImmer(defaultPreset);
+    const [workingCopyPresets, setWorkingCopyPresets] = useImmer([]);
+    const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
 
-    const effectNames = EffectList.map(effectClass => effectClass.displayName);
+    const virtualEffectNames = VirtualEffectList.map(effectClass => effectClass.displayName);
     const [selectedEffectIndex, setSelectedEffectIndex] = useState(0);
-
-    const [tempColors, setTempColors] = useImmer([[]]);
 
     useEffect(loadPresetsFromDatabase, []);
 
@@ -24,54 +22,68 @@ export default function PresetEditor() {
         fetch("api/effect")
             .then(res => res.json())
             .then(resultJson => {
+                console.log('from db', resultJson);
                 setExistingPresets(resultJson);
-                setSelectedPresetIndex(-1);
+                setWorkingCopyPresets(resultJson);
+                setSelectedPresetIndex(0);
             });
     }
     
     useEffect(() => {
-        let selectedPreset = defaultPreset;
-        if (selectedPresetIndex > -1) {
-            selectedPreset = existingPresets[selectedPresetIndex];
+        console.log('selectedPresetIndex changed', selectedPresetIndex);
+        let selectedPreset = null;
+        if (selectedPresetIndex < existingPresets.length) {
+            selectedPreset = workingCopyPresets[selectedPresetIndex];
+
+            console.log('selectedPreset found is', selectedPreset)
+    
+            let effectIndex = VirtualEffectList.findIndex(x => x.effectId === selectedPreset.effectId) ?? -1;
+            console.log('index in the list for this effect is', effectIndex);
+            setSelectedEffectIndex(effectIndex);
         }
-        let effectIndex = EffectList.findIndex(x => x.name === selectedPreset.effectName)
-        setSelectedEffectIndex(effectIndex);
-        setSelectedPreset(selectedPreset);
-        let tempColors = effectNames.map((x, i) => i === effectIndex ? selectedPreset.colors : [])
-        setTempColors(tempColors);
+
     }, [selectedPresetIndex]);
 
     useEffect(() => {
-        setSelectedPreset(draft => {
-            draft.effectName = EffectList[selectedEffectIndex].name;
-            draft.colors = tempColors[selectedEffectIndex];
-        })
+        console.log("selectedEffectIndex changed", selectedEffectIndex);
+
+        if (selectedEffectIndex == -1) {
+            setWorkingCopyPresets(draft => {
+                if (draft[selectedPresetIndex] && draft[selectedPresetIndex].effectId >= 1000) {
+                    draft[selectedPresetIndex].effectId = -1;
+                }
+            });
+        } else {
+            let effectId = VirtualEffectList[selectedEffectIndex]?.effectId ?? -1;
+            console.log("looked up effectId", effectId);
+    
+            setWorkingCopyPresets(draft => {
+                if (draft[selectedPresetIndex]) {
+                    draft[selectedPresetIndex].effectId = effectId;
+                }
+            });
+        }
     }, [selectedEffectIndex]);
 
     useEffect(() => {
-        setExistingPresets(draft => {
-            if (selectedPresetIndex !== -1) {
-                draft[selectedPresetIndex] = selectedPreset;
-            }
-        });
-    }, [selectedPreset]);
+        console.log("working copy changed to", workingCopyPresets);
+    }, [workingCopyPresets]);
 
     function setPresetName(name) {
-        setSelectedPreset(draft => {
-            draft.name = name;
+        setWorkingCopyPresets(draft => {
+            console.log('changing name at index', selectedPresetIndex);
+            draft[selectedPresetIndex].name = name;
         });
     }
 
     function setColors(colors) {
-        setTempColors(draft => {
-            draft[selectedEffectIndex] = colors;
-        });
-        setSelectedPreset(draft => {
-            draft.colors = colors;
-        });
+        setWorkingCopyPresets(draft => {
+            draft[selectedPresetIndex].colors = colors;
+        })
     }
 
     function savePreset() {
+        let selectedPreset = workingCopyPresets[selectedPresetIndex];
         console.log('saving preset', selectedPreset);
         let req = null;
         if (selectedPreset.id === -1) {
@@ -89,23 +101,55 @@ export default function PresetEditor() {
         req.then((res) => res.json())
         .then((data) => {
             console.log('response', data, 'for id', selectedPreset.id);
-            if (selectedPreset.id === -1) {
-                console.log('adding it to the existing presets')
-                setExistingPresets(draft => { draft.push(data) });
-                setSelectedPresetIndex(existingPresets.length);
-            }
-            setSelectedPreset(data);
+
+            setExistingPresets(draft => {
+                draft[selectedPresetIndex] = data;
+            });
         });
     }
 
     function deletePreset() {
-        fetch('api/effect/' + selectedPreset.id, { method: "DELETE" })
+        fetch('api/effect/' + existingPresets[selectedPresetIndex].id, { method: "DELETE" })
         .then(loadPresetsFromDatabase);
     }
 
+    function addNewPreset() {
+        setWorkingCopyPresets(draft => {
+            draft.push(defaultPreset);
+            setSelectedPresetIndex(draft.length-1);
+        });
+        setExistingPresets(draft => {
+            draft.push(defaultPreset);
+        });
+
+    }
+
     function getMaxColors() {
-        console.log('getting maxColors from', EffectList, 'at index', selectedEffectIndex);
-        return EffectList[selectedEffectIndex].maxColors
+        console.log('getting maxColors from', VirtualEffectList, 'at index', selectedEffectIndex);
+        return VirtualEffectList[selectedEffectIndex].maxColors
+    }
+
+    function importFromWled() {
+        fetch("api/wled/state")
+            .then(res => res.json())
+            .then(resultJson => {
+                console.log('wled state', resultJson);
+                let activeSegmentIndex = resultJson.seg.findIndex(x => x.sel == true);
+                if (activeSegmentIndex == -1) {
+                    activeSegmentIndex = resultJson.mainSeg;
+                }
+
+                let seg = resultJson.seg[activeSegmentIndex];
+
+                let obj = new WledEffectPreset(workingCopyPresets[selectedPresetIndex].name, seg.fx, 1, seg.sx, seg.ix, seg.col.map(x => new Color(x[0], x[1], x[2])), seg.pal, seg.c1, seg.c2, seg.c3);
+                obj.id = workingCopyPresets[selectedPresetIndex].id;
+
+                console.log("obj built up", obj);
+
+                setWorkingCopyPresets(draft => {
+                    draft[selectedPresetIndex] = obj;
+                });
+            });
     }
 
     return (
@@ -115,12 +159,25 @@ export default function PresetEditor() {
                 <link rel="icon" href="/favicon.ico" />
             </Head>
 
-            <ObjectChooser selectedIndex={selectedPresetIndex} setSelectedIndex={setSelectedPresetIndex} choices={existingPresets.map(x => x.name)} defaultOption={"New Preset"} labelText={"Preset to edit"} /><br />
-            <label>Preset name: <input value={selectedPreset.name} onChange={e => setPresetName(e.target.value)} /></label><br />
-            <ObjectChooser selectedIndex={selectedEffectIndex} setSelectedIndex={setSelectedEffectIndex} choices={EffectList.map(x => x.displayName)} labelText={"Effect:"} /><br />
-            <ColorPicker setColors={setColors} colors={tempColors[selectedEffectIndex]} maxToPick={getMaxColors} /><br />
-            <button onClick={savePreset} disabled={!selectedPreset.name || selectedPreset.colors.length == 0}>Save Preset</button>
-            <button onClick={deletePreset}>Delete</button>
+            <button onClick={addNewPreset}>Create Preset</button>
+            {workingCopyPresets.length > 0 && 
+            <div>
+                <ObjectChooser selectedIndex={selectedPresetIndex} setSelectedIndex={setSelectedPresetIndex} choices={existingPresets.map(x => x.name)} labelText={"Preset to edit"} /><br />
+                <label>Preset name: <input value={workingCopyPresets[selectedPresetIndex].name} onChange={e => setPresetName(e.target.value)} /></label><br />
+                <ObjectChooser selectedIndex={selectedEffectIndex} setSelectedIndex={setSelectedEffectIndex} choices={VirtualEffectList.map(x => x.displayName)} defaultOption={"WLED Effect Preset"} labelText={"Effect:"} /><br />
+                {workingCopyPresets[selectedPresetIndex].colors.map((color,i) => (
+                    <div key={i} style={{width: 30, height: 30, border:2, backgroundColor: "rgb("+color.red+", "+color.green+", "+color.blue+")"}}></div>
+                ))}
+                {selectedEffectIndex != -1 && <ColorPicker setColors={setColors} colors={workingCopyPresets[selectedPresetIndex].colors} maxToPick={getMaxColors} />}
+                {selectedEffectIndex == -1 && <div>
+                    <button onClick={importFromWled}>Import from WLED</button><br />
+                    Effect ID: {workingCopyPresets[selectedPresetIndex].effectId}
+                </div>}
+                <br />
+                <button onClick={savePreset} disabled={!workingCopyPresets[selectedPresetIndex].name || workingCopyPresets[selectedPresetIndex].colors.length == 0 || workingCopyPresets[selectedPresetIndex].effectId == -1}>Save Preset</button>
+                <button onClick={deletePreset}>Delete</button>
+            </div>
+            }
         </>
     );
 }
@@ -175,9 +232,6 @@ function ColorPicker({ colors, setColors, maxToPick }) {
 
     return (
         <>
-            {colors.map((color) => (
-                <div key={crypto.randomUUID()} style={{width: 30, height: 30, backgroundColor: "rgb("+color.red+", "+color.green+", "+color.blue+")"}}></div>
-            ))}
             <div ref={ref} />
             <div id="qcs-w">
                 {defaultColors.map(([name,hexString]) => (

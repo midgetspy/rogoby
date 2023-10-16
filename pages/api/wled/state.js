@@ -1,20 +1,32 @@
 import { Database } from "../../../components/db";
-import { Section, LedString, EffectList } from "../../../components/app";
+import { Section, LedString, EffectList, VirtualEffectList, WledEffectPreset } from "../../../components/app";
 
 const db = new Database();
 
 export default async function handler(req, res) {
-    if (req.method === 'POST') {
+    if (req.method === 'GET') {
+        fetch("http://"+process.env.WLED_IP+"/json/state")
+            .then(res => res.json())
+            .then(json => res.status(200).json(json));
+    } else if (req.method === 'POST') {
 
         let stateRequest = JSON.parse(req.body);
         console.log('stateRequest', stateRequest);
 
         let sections = await Promise.all(stateRequest.sections.map(async x => {
             let section = new Section(x.name, x.length, x.reversed, x.mirrored);
-            let effect = await db.getEffectPreset(x.effectId);
-            let effectObj = new (EffectList.find(x => x.name === effect.effectName))();
-            effectObj.setColors(effect.colors);
-            section.setEffect(effectObj);
+            console.log('x is', x);
+            let effect = await db.getEffectPreset(x.effectPresetId);
+            let virtualEffect = VirtualEffectList.find(x => x.effectId == effect.effectId);
+            if (virtualEffect) {
+                let effectPreset = new virtualEffect(effect.presetName, effect.width, effect.colors);
+                console.log('made virtual effect', effectPreset);
+                section.setEffect(effectPreset);
+            } else {
+                let effectPreset = new WledEffectPreset(effect.presetName, effect.effectId, effect.width, effect.speed, effect.intensity, effect.colors, effect.paletteId, effect.custom1, effect.custom2, effect.custom3);
+                console.log('made wled effect', effectPreset);
+                section.setEffect(effectPreset);
+            }
             return section;
         }));
 

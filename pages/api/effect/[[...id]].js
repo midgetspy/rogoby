@@ -1,6 +1,12 @@
 import { Database } from "../../../components/db";
+import { StaticPattern, ColorwavePattern, Color, WledEffectPreset } from "../../../components/app";
 
 const db = new Database()
+
+const staticData = [
+    new ColorwavePattern("RGB", 1, [Color.Red, Color.Green, Color.Blue]),
+    new WledEffectPreset("Some preset", 57, 1, 128, 128, [Color.Blue, Color.Red, Color.Black], 0, 0, 0, 0),
+]
 
 export default async function handler(req, res) {
     const { id } = req.query;

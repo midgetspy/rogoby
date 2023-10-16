@@ -1,17 +1,25 @@
 import sqlite3 from 'sqlite3'
 import { open } from 'sqlite'
+import { existsSync } from 'fs'
 
 export class Database {
+    #dbFilename = './config/config.db'
 
     #db = null
 
     async getDb() {
         if (this.#db === null) {
+            let existingDb = existsSync(this.#dbFilename);
+
             this.#db = await open({
-                filename: './config.db',
+                filename: this.#dbFilename,
                 mode: sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
                 driver: sqlite3.Database
             });
+
+            if (!existingDb) {
+                await this.initializeDb();
+            }
         }
 
         return this.#db;
@@ -20,9 +28,27 @@ export class Database {
     async createEffectPreset(effectPreset) {
         let db = await this.getDb();
 
-        let insertedEffectPreset = await db.run("INSERT INTO effectPreset (name, effectName) VALUES (?, ?)",
+        let insertedEffectPreset = await db.run(`
+            INSERT INTO effectPreset (
+                name,
+                effectId,
+                width,
+                speed,
+                intensity,
+                paletteId,
+                custom1,
+                custom2,
+                custom3
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             effectPreset.name,
-            effectPreset.effectName
+            effectPreset.effectId,
+            effectPreset.width,
+            effectPreset.speed,
+            effectPreset.intensity,
+            effectPreset.paletteId,
+            effectPreset.custom1,
+            effectPreset.custom2,
+            effectPreset.custom3
         );
         effectPreset.id = insertedEffectPreset.lastID;
 
@@ -34,9 +60,27 @@ export class Database {
     async updateEffectPreset(effectPreset) {
         let db = await this.getDb();
 
-        let result = await db.run("UPDATE effectPreset SET name = ?, effectName = ? WHERE id = ?",
+        let result = await db.run(`
+            UPDATE effectPreset SET
+                name = ?,
+                effectId = ?,
+                width = ?,
+                speed = ?,
+                intensity= ?,
+                paletteId = ?,
+                custom1 = ?,
+                custom2 = ?,
+                custom3 = ?
+            WHERE id = ?`,
             effectPreset.name,
-            effectPreset.effectName,
+            effectPreset.effectId,
+            effectPreset.width,
+            effectPreset.speed,
+            effectPreset.intensity,
+            effectPreset.paletteId,
+            effectPreset.custom1,
+            effectPreset.custom2,
+            effectPreset.custom3,
             effectPreset.id
         );
         console.log('updated effectPreset with id', effectPreset.id);
@@ -186,7 +230,14 @@ export class Database {
             `CREATE TABLE IF NOT EXISTS effectPreset (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT,
-                effectName TEXT
+                effectId INTEGER,
+                width INTEGER,
+                speed INTEGER,
+                intensity INTEGER,
+                paletteId INTEGER,
+                custom1 INTEGER,
+                custom2 INTEGER,
+                custom3 INTEGER
             )`
         );
 

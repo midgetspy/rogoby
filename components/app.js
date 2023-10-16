@@ -1,3 +1,5 @@
+import {immerable} from "immer"
+
 export class Color {
     static Black = new Color(0,0,0);
     static Red = new Color(255,0,0);
@@ -31,85 +33,22 @@ class ApiEffect {
     static Saw = (speed, width, fg, bg) => new ApiEffect(16, speed, width, fg, bg);
     static Sine = (speed, intensity, fg, bg) => new ApiEffect(108, speed, intensity, fg, bg);
 
-    constructor(id, speed, intensity, color1, color2=Color.Black, color3=Color.Black) {
+    constructor(id, speed, intensity, color1, color2=Color.Black, color3=Color.Black, paletteId=0) {
         this.id = id;
         this.speed = speed;
         this.intensity = intensity;
         this.color1 = color1;
         this.color2 = color2;
         this.color3 = color3;
+        this.paletteId = paletteId;
     }
 }
 
-class ApiSegment {
-    #id
-    #start
-    #stop
-    #grouping
-    #spacing
-    #reverse
-    #mirror
-    #effect
-
-    constructor(id, start, stop, effect, grouping=1, spacing=0, reverse=false, mirror=false) {
-        this.#id = id;
-        this.#start = start;
-        this.#stop = stop;
-        this.#grouping = grouping;
-        this.#spacing = spacing;
-        this.#reverse = reverse;
-        this.#effect = effect;
-        this.#mirror = mirror;
-    }
-
-    render() {
-        return {
-            "id":this.#id,
-            "start":this.#start,
-            "stop":this.#stop,
-            "grp":this.#grouping,
-            "spc":this.#spacing,
-            "of":0,
-            "on":true,
-            "frz":false,
-            "bri":255,
-            "cct":127,
-            "col":[
-                [
-                    this.#effect.color1.red,
-                    this.#effect.color1.green,
-                    this.#effect.color1.blue
-                ],
-                [
-                    this.#effect.color2.red,
-                    this.#effect.color2.green,
-                    this.#effect.color2.blue
-                ],
-                [
-                    this.#effect.color3.red,
-                    this.#effect.color3.green,
-                    this.#effect.color3.blue
-                ]
-            ],
-            "fx":this.#effect.id,
-            "sx":this.#effect.speed,
-            "ix":this.#effect.intensity,
-            "pal":0,
-            "sel":false,
-            "rev":this.#reverse,
-            "mi":this.#mirror
-            };
-    }
-}
-
-class StaticPattern {
-    static displayName = "Static Pattern";
-    static maxColors = 10;
-    colors = [];
-    #width = 1;
+export class WledEffectPreset {
+    [immerable] = true
 
     setWidth(width) {
-        this.#width = width;
+        this.width = width;
     }
 
     setColors(colors) {
@@ -117,95 +56,78 @@ class StaticPattern {
     }
 
     _createEffects() {
-        return this.colors.map((color) => ApiEffect.Solid(color));
+        return [new ApiEffect(this.effectId, this.speed, this.intensity, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black, this.colors[2] ?? Color.Black, this.paletteId ?? 0)]
+    }
+
+    constructor(name, effectId, width, speed, intensity, colors, paletteId, custom1, custom2, custom3) {
+        this.name = name
+        this.effectId = effectId;
+        this.width = width;
+        this.speed = speed;
+        this.intensity = intensity;
+        this.colors = colors;
+        this.paletteId = paletteId;
+        this.custom1 = custom1;
+        this.custom2 = custom2;
+        this.custom3 = custom3;
     }
 
     renderForSegment(idStart, segmentStart, segment) {
         let effects = this._createEffects()
         return effects.map((effect, i) => {
-            return new ApiSegment(
-                idStart+i,
-                segmentStart+i*this.#width,
-                segmentStart+segment.length,
-                effect,
-                this.#width,
-                effects.length-1,
-                segment.reversed,
-                segment.mirrored,
-            ).render()
+            return {
+                "id":idStart+i,
+                "start":segmentStart+i*this.width,
+                "stop":segmentStart+segment.length,
+                "grp":this.width,
+                "spc":effects.length-1,
+                "of":0,
+                "on":true,
+                "frz":false,
+                "bri":255,
+                "cct":127,
+                "col": [effect.color1, effect.color2, effect.color3].map(x => [x.red, x.green, x.blue]),
+                "fx":effect.id,
+                "sx":effect.speed,
+                "ix":effect.intensity,
+                "pal":effect.paletteId,
+                "sel":false,
+                "rev":segment.reversed,
+                "mi":segment.mirrored
+            };
         });
     }
 }
 
-class ColorwavePattern extends StaticPattern {
+export class StaticPattern extends WledEffectPreset {
+    static displayName = "Static Pattern";
+    static maxColors = 10;
+    static effectId = 1000;
+
+    constructor (presetName, width, colors) {
+        super(presetName, StaticPattern.effectId, 1, 128, 128, colors, 0, 0, 0, 0)
+    }
+
+    _createEffects() {
+        return this.colors.map((color) => ApiEffect.Solid(color));
+    }
+}
+
+export class ColorwavePattern extends WledEffectPreset {
     static displayName = "Colorwave Pattern";
     static maxColors = 2;
-    #hue = 128;
-    #speed = 1;
+    static effectId = 1001;
+
+    constructor (presetName, width, colors) {
+        super(presetName, ColorwavePattern.effectId, 1, 1, 128, colors, 0, 0, 0, 0)
+    }
 
     _createEffects() {
-        return this.colors.map((color) => ApiEffect.Colorwave(this.#speed, this.#hue, color));
+        return this.colors.map((color) => ApiEffect.Colorwave(this.speed, this.intensity, color));
     }
 }
 
-class Running extends StaticPattern {
-    static displayName = "Running";
-    static maxColors = 2;
-    #speed = 20;
-    #runWidth = 255;
-
-    _createEffects() {
-        return [ApiEffect.Running(this.#speed, this.#runWidth, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)];
-    }
-
-}
-
-class Phased extends StaticPattern {
-    static displayName = "Phased";
-    static maxColors = 2;
-    #speed = 40;
-    #intensity = 255;
-
-    _createEffects() {
-        return [ApiEffect.Phased(this.#speed, this.#intensity, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)];
-    }
-}
-
-class Railway extends StaticPattern {
-    static displayName = "Railway";
-    static maxColors = 2;
-    #speed = 128;
-    #smoothness = 255;
-
-    _createEffects() {
-        return [ApiEffect.Railway(this.#speed, this.#smoothness, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)];
-    }
-
-}
-
-class Saw extends StaticPattern {
-    static displayName = "Saw";
-    static maxColors = 2;
-    #speed = 20;
-    #sawWidth = 128;
-
-    _createEffects() {
-        return [ApiEffect.Saw(this.#speed, this.#sawWidth, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)];
-    }
-}
-
-class Sine extends StaticPattern {
-    static displayName = "Sine";
-    static maxColors = 2;
-    #speed = 20;
-    #intensity = 128;
-
-    _createEffects() {
-        return [ApiEffect.Sine(this.#speed, this.#intensity, this.colors[0] ?? Color.Black, this.colors[1] ?? Color.Black)];
-    }
-}
-
-export const EffectList = [StaticPattern, ColorwavePattern, Running, Phased, Railway, Saw, Sine];
+export const VirtualEffectList = [StaticPattern, ColorwavePattern];
 
 export class Section {
     id = -1;
@@ -263,3 +185,9 @@ export class LedString {
     }
 
 }
+
+// let a = new StaticPattern("foo", 3, [Color.Red, Color.Blue, Color.Green]);
+// let a2 = new WledEffectPreset("foo", 67, 2, 3, 4, [Color.Red, Color.Blue, Color.Green], 5, 6, 7, 8);
+// let b = new Section("bar", 100, false, false);
+// let c = a.renderForSegment(55, 22, b);
+// console.log('out is', JSON.stringify(c, null, 3));
