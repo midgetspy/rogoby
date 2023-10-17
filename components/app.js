@@ -13,15 +13,6 @@ export class Color {
         this.green = green;
         this.blue = blue;
     }
-
-    #componentToHex(c) {
-        var hex = c.toString(16);
-        return hex.length == 1 ? "0" + hex : hex;
-    }
-      
-    hexString() {
-        return "#" + this.#componentToHex(this.red) + this.#componentToHex(this.green) + this.#componentToHex(this.blue);
-    }
 }
 
 class ApiEffect {
@@ -73,7 +64,7 @@ export class WledEffectPreset {
     }
 
     renderForSegment(idStart, segmentStart, segment) {
-        let effects = this._createEffects()
+        let effects = this._createEffects(segment)
         return effects.map((effect, i) => {
             return {
                 "id":idStart+i,
@@ -99,31 +90,51 @@ export class WledEffectPreset {
     }
 }
 
-export class StaticPattern extends WledEffectPreset {
-    static displayName = "Static Pattern";
+export class VirtualEffect extends WledEffectPreset {
+    static displayName = "Virtual Effect";
     static maxColors = 10;
     static effectId = 1000;
 
     constructor (presetName, width, colors) {
-        super(presetName, StaticPattern.effectId, 1, 128, 128, colors, 0, 0, 0, 0)
+        super(presetName, 0, 1, 128, 128, colors, 0, 0, 0, 0)
     }
 
-    _createEffects() {
-        return this.colors.map((color) => ApiEffect.Solid(color));
+    _createEffect(color) {
+        throw new Error("_createEffect must be defined in a subclass");
+    }
+
+    _createEffects(segment) {
+        // copy it
+        let effectColors = [...this.colors]
+
+        // reverse it
+        if (segment.reversed) {
+            effectColors.reverse();
+        }
+
+        // rotate it so the end of the reversed pattern lands on the last LED
+        let offset = effectColors.length - segment.length % effectColors.length;
+        effectColors = [...effectColors.slice(offset), ...effectColors.slice(0, offset)];
+
+        return effectColors.map((color) => this._createEffect(color));
     }
 }
 
-export class ColorwavePattern extends WledEffectPreset {
+export class StaticPattern extends VirtualEffect {
+    static displayName = "Static Pattern";
+    static effectId = 1000;
+
+    _createEffect(color) {
+        return ApiEffect.Solid(color);
+    }
+}
+
+export class ColorwavePattern extends VirtualEffect {
     static displayName = "Colorwave Pattern";
-    static maxColors = 2;
     static effectId = 1001;
 
-    constructor (presetName, width, colors) {
-        super(presetName, ColorwavePattern.effectId, 1, 1, 128, colors, 0, 0, 0, 0)
-    }
-
-    _createEffects() {
-        return this.colors.map((color) => ApiEffect.Colorwave(this.speed, this.intensity, color));
+    _createEffect(color) {
+        return ApiEffect.Colorwave(this.speed, this.intensity, color);
     }
 }
 
@@ -132,10 +143,10 @@ export const VirtualEffectList = [StaticPattern, ColorwavePattern];
 export class Section {
     id = -1;
     
-    constructor(name, length, reverse=false, mirror=false) {
+    constructor(name, length, reversed=false, mirror=false) {
         this.name = name;
         this.length = length;
-        this.reversed = reverse;
+        this.reversed = reversed;
         this.mirrored = mirror;
     }
 
@@ -186,8 +197,8 @@ export class LedString {
 
 }
 
-// let a = new StaticPattern("foo", 3, [Color.Red, Color.Blue, Color.Green]);
-// let a2 = new WledEffectPreset("foo", 67, 2, 3, 4, [Color.Red, Color.Blue, Color.Green], 5, 6, 7, 8);
-// let b = new Section("bar", 100, false, false);
-// let c = a.renderForSegment(55, 22, b);
-// console.log('out is', JSON.stringify(c, null, 3));
+let a = new StaticPattern("foo", 3, [Color.Red, Color.Green, Color.Blue]);
+let a2 = new WledEffectPreset("foo", 67, 2, 3, 4, [Color.Red, Color.Blue, Color.Green], 5, 6, 7, 8);
+let b = new Section("bar", 8, true, false);
+let c = a.renderForSegment(55, 0, b);
+console.log('out is', JSON.stringify(c, null, 3));
