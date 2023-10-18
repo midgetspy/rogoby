@@ -186,10 +186,12 @@ function ColorPicker({ colors, setColors, maxToPick }) {
     const ref = useRef();
     const colorPicker = useRef();
 
+    const [curHexString, setCurHexString] = useState('ffffff');
     const [lastHue, setLastHue] = useState(0);
 
     useEffect(() => {
       const cp = (colorPicker.current = new iro.ColorPicker(ref.current));
+      colorPicker.current.on("color:change", (color) => setCurHexString(color.hexString.substring(1)));
     }, []);
 
     function handleClick() {
@@ -217,6 +219,16 @@ function ColorPicker({ colors, setColors, maxToPick }) {
          }
     }
 
+    function fromHex() {
+        try {
+            setPicker("#"+curHexString.substring(0,6))
+        } catch(e) {
+            setPicker("#ffaa00")
+        }
+    }
+
+
+
     let defaultColors = [
         ["Red", "#ff0000"],
         ["Orange", "#ffa000"],
@@ -239,6 +251,7 @@ function ColorPicker({ colors, setColors, maxToPick }) {
                 ))}
                 <div className="qcs" onClick={() => pickColor("rnd")} title="Random" style={{background: "linear-gradient(to right,red,orange,#ff0,green,#00f,purple)", transform:"translateY(-11px)"}}>R</div>
             </div>
+            <input value={curHexString} onChange={(e) => setCurHexString(e.target.value)}></input> <button onClick={fromHex}>Set</button><br/ >
             <button onClick={handleClick} disabled={colors.length >= maxToPick}>Add Color</button>
             <button onClick={() => setColors([])}>Reset Colors</button>
         </>
