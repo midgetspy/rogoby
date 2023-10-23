@@ -19,7 +19,7 @@ export default async function handler(req, res) {
             let effect = await db.getEffectPreset(x.effectPresetId);
             let virtualEffect = VirtualEffectList.find(x => x.effectId == effect.effectId);
             if (virtualEffect) {
-                let effectPreset = new virtualEffect(effect.presetName, effect.width, effect.colors);
+                let effectPreset = new virtualEffect(effect.presetName, effect.width ?? 1, effect.colors);
                 console.log('made virtual effect', effectPreset);
                 section.setEffect(effectPreset);
             } else {
@@ -39,12 +39,12 @@ export default async function handler(req, res) {
 
         console.log("Sending the following JSON to WLED:", JSON.stringify(renderedString, null, 3));
 
-        // fetch("http://"+process.env.WLED_IP+"/json/state", {
-        //     method: "POST",
-        //     body: req.body
-        // })
-        //     .then(res => res.json())
-        //     .then(json => res.status(200).json(json));
+        fetch("http://"+process.env.WLED_IP+"/json/state", {
+            method: "POST",
+            body: JSON.stringify(renderedString)
+        })
+            .then(res => res.json())
+            .then(json => res.status(200).json(json));
 
         return res.status(200).json('ok');
     } else {
