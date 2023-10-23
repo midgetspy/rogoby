@@ -175,21 +175,43 @@ export class Database {
         let db = await this.getDb();
 
         let insertedPreset = await db.run("INSERT INTO sectionPreset (name) VALUES (?)", preset.name);
-        console.log('added a sectionPreset with id', insertedPreset.lastID);
+        preset.id = insertedPreset.lastID;
+        console.log('added a sectionPreset with id', preset.id);
+
+        this._insertColorsForEffectPreset(preset);
+
+        return preset.id;
+    }
+
+    async updatePreset(preset) {
+        let db = await this.getDb();
+
+        await db.run("UPDATE sectionPreset SET name = ? WHERE id = ?", preset.name, preset.id);
+        console.log('updated the sectionPreset with id', preset.id);
+
+        this._insertSectionsForPreset(preset);
+
+        return preset.id;
+    }
+
+    async _insertSectionsForPreset(preset) {
+        let db = await this.getDb();
+
+        await db.run("DELETE FROM section WHERE sectionPresetId = ?", preset.id);
 
         for (let i in preset.sections) {
-            let sectionResult = await db.run("INSERT INTO section (name, length, reversed, mirrored, sectionPresetId) VALUES (?, ?, ?, ?, ?)",
+            await db.run("INSERT INTO section (name, length, reversed, mirrored, sectionPresetId) VALUES (?, ?, ?, ?, ?)",
                 preset.sections[i].name,
                 preset.sections[i].length,
                 preset.sections[i].reversed,
                 preset.sections[i].mirrored,
-                insertedPreset.lastID
+                preset.id
             );
-            console.log('added a section', sectionResult.lastID);
         }
 
-        return insertedPreset.lastID;
+        return;
     }
+
 
     async deletePreset(id) {
         let db = await this.getDb();

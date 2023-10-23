@@ -33,7 +33,8 @@ export default async function handler(req, res) {
             return;
         }
         console.log('updating row with id', id, req.body);
-        res.status(200).json('success');
+        let presetId = await db.updatePreset(JSON.parse(req.body));
+        res.status(200).json(presetId);
     } else if (req.method === 'DELETE') {
         if (id === undefined) {
             res.status(400).send({ message: 'Must specify an id when using DELETE'});
