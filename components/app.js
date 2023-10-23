@@ -19,6 +19,8 @@ class ApiEffect {
     static Solid = (color) => new ApiEffect(0, 128, 128, color);
     static Running = (speed, intensity, fg, bg) => new ApiEffect(15, speed, intensity, fg, bg);
     static Colorwave = (speed, hue, color) => new ApiEffect(67, speed, hue, color);
+    static CandleMulti = (speed, intensity, fg, bg) => new ApiEffect(102, speed, intensity, fg, bg);
+    static SolidPatternTri = (size, color1, color2, color3) => new ApiEffect(84, 0, size, color1, color2, color3);
     static Phased = (speed, intensity, fg, bg) => new ApiEffect(105, speed, intensity, fg, bg);
     static Railway = (speed, smoothness, fg, bg) => new ApiEffect(78, speed, smoothness, fg, bg);
     static Saw = (speed, width, fg, bg) => new ApiEffect(16, speed, width, fg, bg);
@@ -63,15 +65,22 @@ export class WledEffectPreset {
         this.custom3 = custom3;
     }
 
-    renderForSegment(idStart, segmentStart, segment) {
-        let effects = this._createEffects(segment)
+    renderForSegment(idStart, sectionStart, section) {
+        let effects = this._createEffects(section)
         return effects.map((effect, i) => {
+            let start = sectionStart+i*this.width;
+            let stop = sectionStart+section.length;
+            let grouping = this.width;
+            let spacing = (effects.length-1)*this.width;
+            let segmentLength = (stop - start) - (stop - start + spacing) % (spacing + grouping);
+            console.log("G", grouping, "S", spacing, "L", stop - start, "result", segmentLength);
             return {
+                "n":section.name + (effects.length > 1 ? " (" + (i+1) + ")" : ""),
                 "id":idStart+i,
-                "start":segmentStart+i*this.width,
-                "stop":segmentStart+segment.length,
-                "grp":this.width,
-                "spc":effects.length-1,
+                "start":start,
+                "stop":start + segmentLength,
+                "grp":grouping,
+                "spc":spacing,
                 "of":0,
                 "on":true,
                 "frz":false,
@@ -83,8 +92,8 @@ export class WledEffectPreset {
                 "ix":effect.intensity,
                 "pal":effect.paletteId,
                 "sel":false,
-                "rev":segment.reversed,
-                "mi":segment.mirrored
+                "rev":section.reversed,
+                "mi":section.mirrored
             };
         });
     }
@@ -96,7 +105,7 @@ export class VirtualEffect extends WledEffectPreset {
     static effectId = 1000;
 
     constructor (presetName, width, colors) {
-        super(presetName, 0, 1, 128, 128, colors, 0, 0, 0, 0)
+        super(presetName, 0, width, 128, 128, colors, 0, 0, 0, 0)
     }
 
     _createEffect(color) {
@@ -107,22 +116,47 @@ export class VirtualEffect extends WledEffectPreset {
         // copy it
         let effectColors = [...this.colors]
 
-        // reverse it
         if (segment.reversed) {
+            // reverse it
             effectColors.reverse();
+
+            // rotate it so the end of the reversed pattern lands on the last LED
+            // doesn't work perfectly when width > 1 and length % width > 0 but good enough for now
+            let offset = effectColors.length - Math.ceil(segment.length/this.width) % effectColors.length;
+            effectColors = [...effectColors.slice(offset), ...effectColors.slice(0, offset)];
         }
 
-        // rotate it so the end of the reversed pattern lands on the last LED
-        let offset = effectColors.length - segment.length % effectColors.length;
-        effectColors = [...effectColors.slice(offset), ...effectColors.slice(0, offset)];
-
         return effectColors.map((color) => this._createEffect(color));
+    }
+
+    renderForSegment(idStart, segmentStart, segment) {
+        if (segment.mirrored) {
+            let firstLength = Math.ceil(segment.length/2);
+            let firstSegment = new Section(segment.name + " First Half", firstLength, false, false);
+            let firstRender = super.renderForSegment(idStart, segmentStart, firstSegment);
+
+            let secondLength = Math.floor(segment.length/2);
+            let secondSegment = new Section(segment.name + " Second Half", secondLength, true, false);
+            let secondRender = super.renderForSegment(idStart+firstRender.length, segmentStart+firstSegment.length, secondSegment);
+
+            return [...firstRender, ...secondRender];
+        } else {
+            return super.renderForSegment(idStart, segmentStart, segment);
+        }
     }
 }
 
 export class StaticPattern extends VirtualEffect {
     static displayName = "Static Pattern";
     static effectId = 1000;
+
+    _createEffects(segment) {
+        if (this.colors.length == 3) {
+            return [ApiEffect.SolidPatternTri(0, this.colors[0], this.colors[1], this.colors[2])]
+        } else {
+            return super._createEffect(segment);
+        }
+    }
 
     _createEffect(color) {
         return ApiEffect.Solid(color);
@@ -134,20 +168,29 @@ export class ColorwavePattern extends VirtualEffect {
     static effectId = 1001;
 
     _createEffect(color) {
-        return ApiEffect.Colorwave(this.speed, this.intensity, color);
+        return ApiEffect.Colorwave(1, 1, color);
     }
 }
 
-export const VirtualEffectList = [StaticPattern, ColorwavePattern];
+export class CandleMultiPattern extends VirtualEffect {
+    static displayName = "Candle Pattern";
+    static effectId = 1002;
+
+    _createEffect(color) {
+        return ApiEffect.CandleMulti(1, 80, color, Color.Black);
+    }
+}
+
+export const VirtualEffectList = [StaticPattern, ColorwavePattern, CandleMultiPattern];
 
 export class Section {
     id = -1;
     
-    constructor(name, length, reversed=false, mirror=false) {
+    constructor(name, length, reversed=false, mirrored=false) {
         this.name = name;
         this.length = length;
         this.reversed = reversed;
-        this.mirrored = mirror;
+        this.mirrored = mirrored;
     }
 
     setEffect(effect) {
@@ -197,8 +240,8 @@ export class LedString {
 
 }
 
-let a = new StaticPattern("foo", 3, [Color.Red, Color.Green, Color.Blue]);
-let a2 = new WledEffectPreset("foo", 67, 2, 3, 4, [Color.Red, Color.Blue, Color.Green], 5, 6, 7, 8);
-let b = new Section("bar", 8, true, false);
-let c = a.renderForSegment(55, 0, b);
-console.log('out is', JSON.stringify(c, null, 3));
+// let a = new StaticPattern("foo", 1, [Color.Red, Color.Green, Color.Blue]);
+// let a2 = new WledEffectPreset("foo", 67, 2, 3, 4, [Color.Red, Color.Blue, Color.Green], 5, 6, 7, 8);
+// let b = new Section("bar", 14, false, true);
+// let c = a.renderForSegment(0, 0, b);
+// console.log('out is', JSON.stringify(c, null, 3));

@@ -28,12 +28,10 @@ export default function PresetEditor() {
                 setSelectedPresetIndex(0);
             });
     }
-    
-    useEffect(() => {
-        console.log('selectedPresetIndex changed', selectedPresetIndex);
-        let selectedPreset = null;
+
+    function setEffectPreset() {
         if (selectedPresetIndex < existingPresets.length) {
-            selectedPreset = workingCopyPresets[selectedPresetIndex];
+            let selectedPreset = workingCopyPresets[selectedPresetIndex];
 
             console.log('selectedPreset found is', selectedPreset)
     
@@ -42,6 +40,16 @@ export default function PresetEditor() {
             setSelectedEffectIndex(effectIndex);
         }
 
+    }
+
+    useEffect(() => {
+        console.log("existing presets changed", existingPresets);
+        setEffectPreset();
+    }, [existingPresets])
+    
+    useEffect(() => {
+        console.log('selectedPresetIndex changed', selectedPresetIndex);
+        setEffectPreset();
     }, [selectedPresetIndex]);
 
     useEffect(() => {
@@ -65,13 +73,8 @@ export default function PresetEditor() {
         }
     }, [selectedEffectIndex]);
 
-    useEffect(() => {
-        console.log("working copy changed to", workingCopyPresets);
-    }, [workingCopyPresets]);
-
     function setPresetName(name) {
         setWorkingCopyPresets(draft => {
-            console.log('changing name at index', selectedPresetIndex);
             draft[selectedPresetIndex].name = name;
         });
     }
