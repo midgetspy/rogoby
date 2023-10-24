@@ -178,7 +178,7 @@ export class Database {
         preset.id = insertedPreset.lastID;
         console.log('added a sectionPreset with id', preset.id);
 
-        this._insertColorsForEffectPreset(preset);
+        this._insertSectionsForPreset(preset);
 
         return preset.id;
     }
