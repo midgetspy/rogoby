@@ -37,13 +37,13 @@ An example docker-compose config:
 version: "3.8"
 services:
   rogoby:
-    image: rogoby:latest
+    image: midgetspy/rogoby:latest
     ports:
-      - "8030:3000"
+      - 8030:3000/tcp
     volumes:
-      - "my-config-dir:/app/config"
+      - /my/config/dir:/app/config
     environment:
-      - WLED_IP: 192.168.0.123
+      - WLED_IP=192.168.0.123
 ```
 
 The web interface will be served up on the port you specified.
