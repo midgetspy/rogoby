@@ -154,7 +154,7 @@ export class StaticPattern extends VirtualEffect {
         if (this.colors.length == 3) {
             return [ApiEffect.SolidPatternTri(0, this.colors[0], this.colors[1], this.colors[2])]
         } else {
-            return super._createEffect(segment);
+            return super._createEffects(segment);
         }
     }
 
