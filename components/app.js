@@ -232,7 +232,7 @@ export class LedString {
         return {
             "on": true,
             "bri": 255,
-            "transition": 0,
+            "transition": 5,
             "mainseg": 0,
             "seg": apiSegments.concat(Array(20).fill({"stop":0}))
         }
