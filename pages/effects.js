@@ -79,6 +79,12 @@ export default function PresetEditor() {
         });
     }
 
+    function setPresetWidth(width) {
+        setWorkingCopyPresets(draft => {
+            draft[selectedPresetIndex].width = width;
+        });
+    }
+
     function setColors(colors) {
         setWorkingCopyPresets(draft => {
             draft[selectedPresetIndex].colors = colors;
@@ -171,7 +177,10 @@ export default function PresetEditor() {
                 {workingCopyPresets[selectedPresetIndex].colors.map((color,i) => (
                     <div key={i} style={{width: 30, height: 30, border:2, backgroundColor: "rgb("+color.red+", "+color.green+", "+color.blue+")"}}></div>
                 ))}
-                {selectedEffectIndex != -1 && <ColorPicker setColors={setColors} colors={workingCopyPresets[selectedPresetIndex].colors} maxToPick={getMaxColors} />}
+                {selectedEffectIndex != -1 && <div>
+                    <ColorPicker setColors={setColors} colors={workingCopyPresets[selectedPresetIndex].colors} maxToPick={getMaxColors} /><br />
+                    <label>Width: <input value={workingCopyPresets[selectedPresetIndex].width} onChange={e => setPresetWidth(e.target.value)} /></label>
+                </div>}
                 {selectedEffectIndex == -1 && <div>
                     <button onClick={importFromWled}>Import from WLED</button><br />
                     Effect ID: {workingCopyPresets[selectedPresetIndex].effectId}
