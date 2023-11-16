@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
         let renderedString = ledString.render();
 
-        console.log("Sending the following JSON to WLED:", JSON.stringify(renderedString, null, 3));
+        console.log("Sending the following JSON to WLED on", process.env.WLED_IP, JSON.stringify(renderedString, null, 3));
 
         fetch("http://"+process.env.WLED_IP+"/json/state", {
             method: "POST",
@@ -45,8 +45,6 @@ export default async function handler(req, res) {
         })
             .then(res => res.json())
             .then(json => res.status(200).json(json));
-
-        return res.status(200).json('ok');
     } else {
         res.status(405).send({ message: 'Only POST/GET requests allowed' })
         return
