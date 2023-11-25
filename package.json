@@ -1,5 +1,5 @@
 {
-  "name": "wled-patterns",
+  "name": "rogoby",
   "version": "1.0.0",
   "description": "",
   "start": "node index.js",
