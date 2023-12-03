@@ -245,13 +245,15 @@ function ColorPicker({ colors, setColors, maxToPick }) {
         ["Red", "#ff0000"],
         ["Orange", "#ffa000"],
         ["Yellow", "#ffc800"],
-        ["Warm White", "#ffe0a0"],
         ["White", "#ffffff"],
         ["Black", "#000000"],
         ["Pink", "#ff00ff"],
         ["Blue", "#0000ff"],
         ["Cyan", "#00ffc8"],
-        ["Green", "#08ff00"]
+        ["Green", "#08ff00"],
+        ["Warm Blue", "#5280d1"],
+        ["Warm Green", "#06b000"],
+        ["Warm White", "#ffe0a0"]
     ];
 
     return (
