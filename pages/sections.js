@@ -135,8 +135,8 @@ function LedStringEditor({ string, setString }) {
                     <b>Section {i}</b><br />
                     <label>Name: <input value={x.name} onChange={e => setSectionName(i, e.target.value)} /></label><br />
                     <label>Length: <input value={x.length} onChange={e => setSectionLength(i, e.target.value)} /></label><br />
-                    <label>Reversed: <input type="checkbox" checked={string.reversed} onChange={e => setSectionReversed(i, e)} /></label>
-                    <label>Mirrored: <input type="checkbox" checked={string.mirrored} onChange={e => setSectionMirrored(i, e.target.value === 'on')} /></label>
+                    <label>Reversed: <input type="checkbox" checked={x.reversed} onChange={e => setSectionReversed(i, e)} /></label>
+                    <label>Mirrored: <input type="checkbox" checked={x.mirrored} onChange={e => setSectionMirrored(i, e.target.value === 'on')} /></label>
                     <button onClick={() => deleteSection(i)}>Delete</button>
                 </ul>)}
             </li>
